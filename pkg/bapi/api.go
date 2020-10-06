@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	AppKey    = "tag-service"
+	AppKey    = "blog-service"
 	AppSecret = "nginx"
 )
 
