@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"github.com/2014BDuck/tag-service/internal/middleware"
 	pb "github.com/2014BDuck/tag-service/proto"
 	"github.com/2014BDuck/tag-service/server"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -79,13 +81,6 @@ func runHttpServer() *http.ServeMux {
 	return serveMux
 }
 
-func runGrpcServer() *grpc.Server {
-	s := grpc.NewServer()
-	pb.RegisterTagServiceServer(s, server.NewTagServer())
-	reflection.Register(s)
-	return s
-}
-
 func runGrpcGatewayServer() *runtime.ServeMux {
 	endpoint := "0.0.0.0:" + port
 	runtime.HTTPError = grpcGatewayError
@@ -93,6 +88,21 @@ func runGrpcGatewayServer() *runtime.ServeMux {
 	dopts := []grpc.DialOption{grpc.WithInsecure()}
 	_ = pb.RegisterTagServiceHandlerFromEndpoint(context.Background(), gwmux, endpoint, dopts)
 	return gwmux
+}
+
+func runGrpcServer() *grpc.Server {
+	opts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			middleware.AccessLog,
+			middleware.ErrorLog,
+			middleware.Recovery,
+		)),
+	}
+	s := grpc.NewServer(opts...)
+	pb.RegisterTagServiceServer(s, server.NewTagServer())
+	reflection.Register(s)
+
+	return s
 }
 
 func main() {
